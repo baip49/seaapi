@@ -10,6 +10,7 @@ La API SEA facilita el registro de alumnos mediante:
 
 -   **Búsqueda inteligente** por CURP o matrícula en bases de datos existentes
 -   **Validación automática** de documentos PDF requeridos
+-   **Gestión completa de documentos** con visualización, descarga y almacenamiento seguro
 -   **Gestión de catálogos** de localidades, lenguas indígenas y tipos de sangre
 -   **Almacenamiento seguro** de documentos con nombres únicos UUID
 
@@ -25,7 +26,7 @@ La API SEA facilita el registro de alumnos mediante:
 ### Base de Datos
 
 -   **SQL Server** con procedimientos almacenados
--   **Esquemas**: SIA y Catalogos
+-   **Esquemas**: SIA, SEA y Catalogos
 -   **Tablas temporales** para manejo de documentos
 
 ### ¿Por qué FastAPI?
@@ -52,7 +53,7 @@ cd sea-api
 2. **Instalar dependencias**
 
 ```bash
-pip install fastapi uvicorn pyodbc python-dotenv
+pip install -r requirements.txt
 ```
 
 3. **Configurar variables de entorno**
@@ -91,7 +92,7 @@ Obtiene todos los alumnos registrados.
         "matricula": "123456789123456",
         "nombre": "Juan",
         "apellidoPaterno": "Pérez",
-        "v": "..."
+        "apellidoMaterno": "López"
     }
 ]
 ```
@@ -162,6 +163,67 @@ Actualiza información de alumno existente.
 -   Documentos opcionales (parámetro `documentos: Optional[List[UploadFile]]`)
 -   Preserva documentos existentes si no se proporcionan nuevos
 -   Utiliza procedimiento `ActualizarAlumno`
+
+### 📄 Gestión de Documentos
+
+#### **GET /alumnos/documentos/{id_alumno}**
+
+Obtiene todos los documentos asociados a un alumno específico.
+
+**Parámetros:**
+- `id_alumno` (string): ID único del alumno
+
+**Respuesta:**
+```json
+{
+    "id_alumno": "uuid-del-alumno",
+    "total_documentos": 3,
+    "documentos": [
+        {
+            "Id": "documento-uuid",
+            "NombreArchivo": "certificado.pdf",
+            "RutaArchivo": "uploads/documentos/uuid-archivo.pdf",
+            "TamanoArchivo": 1024000,
+            "FechaSubida": "2024-01-15T10:30:00",
+            "url": "/archivos/documento-uuid",
+            "disponible": true
+        }
+    ]
+}
+```
+
+#### **GET /archivos/{documento_id}**
+
+Sirve un archivo PDF para visualización directa.
+
+**Características:**
+- **Media Type**: `application/pdf`
+- **Uso**: Visualización directa en el navegador
+- **Verificación**: Valida existencia en BD y sistema de archivos
+
+#### **GET /archivos/ver/{documento_id}**
+
+Visualiza un archivo PDF en modo inline (blob) en el navegador.
+
+**Headers de respuesta:**
+```http
+Content-Disposition: inline; filename=nombre_archivo.pdf
+Content-Type: application/pdf
+```
+
+**Uso:** Para mostrar PDFs embebidos en páginas web
+
+#### **GET /archivos/descargar/{documento_id}**
+
+Fuerza la descarga de un archivo PDF.
+
+**Headers de respuesta:**
+```http
+Content-Disposition: attachment; filename=nombre_archivo.pdf
+Content-Type: application/pdf
+```
+
+**Uso:** Para descargar archivos directamente al dispositivo del usuario
 
 ### 📚 Catálogos y Búsquedas
 
@@ -260,9 +322,10 @@ def connect():
 ```
 uploads/
 └── documentos/
-    ├── 1d80767c-628c-4864-bf46-bb94072a1154.pdf
-    ├── 34b0e912-b3e2-46fc-9680-3565c4dec5b7.pdf
-    └── ...
+    ├── 810c447f-0a51-45f8-864f-df1b88a1e4ca.pdf
+    ├── ac451004-8f8d-4aa8-abed-b3dcb0b17762.pdf
+    ├── b8c7d2b9-e46f-46ef-acb8-a152619b94be.pdf
+    └── ef30c20a-9dcf-45be-9232-9064f43ae4e3.pdf
 ```
 
 ### Proceso de Carga
@@ -270,7 +333,13 @@ uploads/
 1. **Validación**: Solo archivos PDF permitidos
 2. **UUID**: Generación de nombre único con `uuid.uuid4()`
 3. **Almacenamiento**: Guardado en `uploads/documentos`
-4. **Base de datos**: Registro en tabla temporal para procesamiento
+4. **Base de datos**: Registro en tabla `sea.Documentos`
+
+### Tipos de Acceso a Documentos
+
+1. **Visualización directa** (`/archivos/{id}`): Para mostrar PDFs en el navegador
+2. **Visualización inline** (`/archivos/ver/{id}`): Para embeber en aplicaciones web
+3. **Descarga forzada** (`/archivos/descargar/{id}`): Para guardar en dispositivo
 
 ### Manejo de Errores
 
@@ -313,12 +382,24 @@ api.add_middleware(
 -   **Swagger UI**: Disponible en `/docs` (con tema oscuro via `fastapi_swagger_dark`)
 -   **ReDoc**: Disponible en `/redoc`
 
+### Validación de Archivos
+
+- **Extensión**: Solo se permiten archivos `.pdf`
+- **Verificación**: Se valida existencia física antes de servir
+- **Nombres únicos**: UUID para evitar conflictos
+
 ## 🚢 Despliegue
 
 ### Desarrollo
 
 ```bash
 fastapi dev main.py
+```
+
+### Producción
+
+```bash
+uvicorn main:api --host 0.0.0.0 --port 8000
 ```
 
 ## 📊 Procedimientos Almacenados
@@ -337,6 +418,19 @@ La API interactúa con varios procedimientos almacenados en SQL Server:
 
 Usar la interfaz Swagger en `http://127.0.0.1:8000/docs`
 
+### Endpoints de Prueba para Documentos
+
+```bash
+# Obtener documentos de un alumno
+GET /alumnos/documentos/{id_alumno}
+
+# Visualizar PDF en navegador
+GET /archivos/ver/{documento_id}
+
+# Descargar PDF
+GET /archivos/descargar/{documento_id}
+```
+
 ### Pruebas Automatizadas (Pendiente)
 
 ```bash
@@ -353,6 +447,7 @@ pytest tests/
 api/
 ├── main.py              # Aplicación FastAPI principal
 ├── db.py                # Configuración de base de datos
+├── requirements.txt     # Dependencias de Python
 ├── .env                 # Variables de entorno (no versionado)
 ├── .gitignore           # Archivos ignorados por Git
 ├── README.md            # Este archivo
@@ -370,6 +465,8 @@ api/
 -   [ ] **Logging**: Sistema de logs estructurado
 -   [ ] **Backup automático**: Respaldo de documentos subidos
 -   [ ] **Compresión**: Optimización de archivos PDF
+-   [ ] **Thumbnails**: Generación de miniaturas para PDFs
+-   [ ] **Metadatos**: Extracción automática de información de documentos
 
 ### Mejoras Técnicas
 
@@ -377,10 +474,14 @@ api/
 -   [ ] **CI/CD**: Pipeline de despliegue automático
 -   [ ] **Monitoring**: Métricas de rendimiento
 -   [ ] **Docker**: Containerización completa
+-   [ ] **CDN**: Distribución de archivos estáticos
 
 ### Comandos de Desarrollo
 
 ```bash
+# Instalar dependencias
+pip install -r requirements.txt
+
 # Formatear código
 black main.py db.py
 
@@ -395,7 +496,15 @@ mypy main.py
 
 Para reportar bugs o solicitar nuevas funcionalidades, contactar al equipo de desarrollo de COBACH Chiapas.
 
-**Endpoints de prueba disponibles en:** `http://127.0.0.1:8000/docs` (esto es cuando el servidor se encuentra servido)
+**Endpoints de prueba disponibles en:** `http://127.0.0.1:8000/docs`
+
+## 🔗 URLs de Documentos
+
+Los endpoints de gestión de documentos siguen este patrón:
+
+- **Listado**: `/alumnos/documentos/{id_alumno}`
+- **Visualización**: `/archivos/{documento_id}` o `/archivos/ver/{documento_id}`
+- **Descarga**: `/archivos/descargar/{documento_id}`
 
 ---
 

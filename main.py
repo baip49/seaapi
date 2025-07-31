@@ -34,6 +34,191 @@ api.add_middleware(
 
 conexion = connect()
 
+# Obtener archivos de un alumno por ID
+@api.get("/alumnos/documentos/{id_alumno}")
+def obtener_documentos_alumno(id_alumno: str):
+    conexion = connect()
+    cursor = conexion.cursor()
+    
+    try:
+        # Consultar los documentos asociados al alumno
+        cursor.execute("""
+            SELECT 
+                Id,
+                NombreArchivo,
+                RutaArchivo,
+                TamanoArchivo,
+                FechaSubida
+            FROM sea.Documentos 
+            WHERE IdAlumno = ?
+        """, id_alumno)
+        
+        rows = cursor.fetchall()
+        
+        if not rows:
+            return {"message": "No se encontraron documentos para este alumno", "documentos": []}
+        
+        columns = [column[0] for column in cursor.description]
+        documentos = []
+        
+        for row in rows:
+            documento_dict = dict(zip(columns, row))
+            
+            # Generar URL para acceder al archivo
+            documento_dict['url'] = f"/archivos/{documento_dict['Id']}"
+            
+            # Verificar si el archivo existe físicamente
+            if os.path.exists(documento_dict['RutaArchivo']):
+                documento_dict['disponible'] = True
+            else:
+                documento_dict['disponible'] = False
+                
+            documentos.append(documento_dict)
+        
+        return {
+            "id_alumno": id_alumno,
+            "total_documentos": len(documentos),
+            "documentos": documentos
+        }
+        
+    except pyodbc.Error as e:
+        return {"error": f"Error al consultar los documentos: {e}"}
+    except Exception as e:
+        return {"error": f"Error inesperado: {e}"}
+    finally:
+        cursor.close()
+
+# Endpoint para servir archivos
+@api.get("/archivos/{documento_id}")
+def mostrar_archivo(documento_id: str):
+    from fastapi.responses import FileResponse
+    
+    conexion = connect()
+    cursor = conexion.cursor()
+    
+    try:
+        # Obtener información del archivo
+        cursor.execute("""
+            SELECT NombreArchivo, RutaArchivo 
+            FROM sea.Documentos 
+            WHERE Id = ?
+        """, documento_id)
+        
+        row = cursor.fetchone()
+        
+        if not row:
+            raise HTTPException(status_code=404, detail="Documento no encontrado")
+        
+        nombre_archivo, ruta_archivo = row
+        
+        # Verificar si el archivo existe
+        if not os.path.exists(ruta_archivo):
+            raise HTTPException(status_code=404, detail="Archivo no encontrado en el sistema")
+        
+        # Devolver el archivo
+        return FileResponse(
+            path=ruta_archivo,
+            filename=nombre_archivo,
+            media_type='application/pdf'
+        )
+        
+    except pyodbc.Error as e:
+        raise HTTPException(status_code=500, detail=f"Error de base de datos: {e}")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error inesperado: {e}")
+    finally:
+        cursor.close()
+
+# Endpoint para visualizar archivos en el navegador (blob)
+@api.get("/archivos/ver/{documento_id}")
+def ver_archivo(documento_id: str):
+    from fastapi.responses import FileResponse
+    
+    conexion = connect()
+    cursor = conexion.cursor()
+    
+    try:
+        # Obtener información del archivo
+        cursor.execute("""
+            SELECT NombreArchivo, RutaArchivo 
+            FROM sea.Documentos 
+            WHERE Id = ?
+        """, documento_id)
+        
+        row = cursor.fetchone()
+        
+        if not row:
+            raise HTTPException(status_code=404, detail="Documento no encontrado")
+        
+        nombre_archivo, ruta_archivo = row
+        
+        # Verificar si el archivo existe
+        if not os.path.exists(ruta_archivo):
+            raise HTTPException(status_code=404, detail="Archivo no encontrado en el sistema")
+        
+        # Devolver el archivo para visualización inline (blob)
+        return FileResponse(
+            path=ruta_archivo,
+            filename=nombre_archivo,
+            media_type='application/pdf',
+            headers={
+                "Content-Disposition": f"inline; filename={nombre_archivo}"
+            }
+        )
+        
+    except pyodbc.Error as e:
+        raise HTTPException(status_code=500, detail=f"Error de base de datos: {e}")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error inesperado: {e}")
+    finally:
+        cursor.close()
+        conexion.close()
+
+# Endpoint para descargar archivos
+@api.get("/archivos/descargar/{documento_id}")
+def descargar_archivo(documento_id: str):
+    from fastapi.responses import FileResponse
+    
+    conexion = connect()
+    cursor = conexion.cursor()
+    
+    try:
+        # Obtener información del archivo
+        cursor.execute("""
+            SELECT NombreArchivo, RutaArchivo 
+            FROM sea.Documentos 
+            WHERE Id = ?
+        """, documento_id)
+        
+        row = cursor.fetchone()
+        
+        if not row:
+            raise HTTPException(status_code=404, detail="Documento no encontrado")
+        
+        nombre_archivo, ruta_archivo = row
+        
+        # Verificar si el archivo existe
+        if not os.path.exists(ruta_archivo):
+            raise HTTPException(status_code=404, detail="Archivo no encontrado en el sistema")
+        
+        # Devolver el archivo para descarga forzada
+        return FileResponse(
+            path=ruta_archivo,
+            filename=nombre_archivo,
+            media_type='application/pdf',
+            headers={
+                "Content-Disposition": f"attachment; filename={nombre_archivo}"
+            }
+        )
+        
+    except pyodbc.Error as e:
+        raise HTTPException(status_code=500, detail=f"Error de base de datos: {e}")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error inesperado: {e}")
+    finally:
+        cursor.close()
+        conexion.close()
+
 # Obtener todos los alumnos
 @api.get("/alumnos")
 def leer_alumnos():
@@ -167,7 +352,7 @@ async def insertar_alumno(
                 NombreArchivo NVARCHAR(255),
                 RutaArchivo NVARCHAR(500),
                 TamanoArchivo BIGINT,
-                FechaSubida DATETIME
+                FechaSubida DATETIME,
             )
         """)
         
@@ -291,7 +476,7 @@ class ActualizarAlumno(BaseModel):
     nombre: str = Field(max_length=80)
     apellidoPaterno: str = Field(max_length=50)
     apellidoMaterno: str = Field(max_length=50)
-    fechaNacimiento: date
+    fechaNacimiento: str
     sexo: str = Field(max_length=1, min_length=1, pattern="^[HM]$")
     telefono: str = Field(max_length=15, min_length=10, pattern=r"^\d+$")
     correo: str = Field(max_length=80, pattern=r"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$")
@@ -304,8 +489,8 @@ class ActualizarAlumno(BaseModel):
     queBeca: Optional[str] = Field(default=None, max_length=50)
     hijoDeTrabjador: str = Field(max_length=5, pattern="^(true|false)$")
     idCapturo: str
-    fechaTramite: date
-    fechaCaptura: date
+    fechaTramite: str
+    fechaCaptura: str
     idRol: int
     tieneAlergias: int = Field(ge=0, le=1)
     alergias: Optional[str] = Field(default=None, max_length=20)
@@ -331,7 +516,7 @@ async def actualizar_alumno(
     nombre: str = Form(...),
     apellidoPaterno: str = Form(...),
     apellidoMaterno: str = Form(...),
-    fechaNacimiento: str = Form(...),
+    fechaNacimiento: str = Form(...),  # 👈 Este viene como string
     sexo: str = Form(...),
     telefono: str = Form(...),
     correo: str = Form(...),
@@ -344,8 +529,8 @@ async def actualizar_alumno(
     queBeca: Optional[str] = Form(None),
     hijoDeTrabjador: str = Form(...),
     idCapturo: str = Form(...),
-    fechaTramite: Optional[date] = Form(...),
-    fechaCaptura: Optional[date] = Form(...),
+    fechaTramite: Optional[str] = Form(...),  # 👈 Cambiar a str
+    fechaCaptura: Optional[str] = Form(...),  # 👈 Cambiar a str
     idRol: int = Form(...),
     tieneAlergias: int = Form(...),
     alergias: Optional[str] = Form(None),
@@ -428,9 +613,20 @@ async def actualizar_alumno(
         apellido_materno_tutor_valor = apellidoMaternoTutor if apellidoMaternoTutor and apellidoMaternoTutor.strip() else None
         telefono_tutor_valor = telefonoTutor if telefonoTutor and telefonoTutor.strip() else None
         
+        # ✅ CORRECCIÓN: Convertir fechas desde strings con validación
         fecha_nacimiento = datetime.strptime(fechaNacimiento, '%Y-%m-%d').date()
-        fecha_tramite = datetime.strptime(fechaTramite, '%Y-%m-%d').date()
-        fecha_captura = datetime.strptime(fechaCaptura, '%Y-%m-%d')
+        
+        # Manejar fechaTramite que puede ser None
+        if fechaTramite:
+            fecha_tramite = datetime.strptime(fechaTramite, '%Y-%m-%d').date()
+        else:
+            fecha_tramite = None
+            
+        # Manejar fechaCaptura que puede ser None  
+        if fechaCaptura:
+            fecha_captura = datetime.strptime(fechaCaptura, '%Y-%m-%d')
+        else:
+            fecha_captura = None
         
         datos = (
             id, curp, matricula, nombre, apellidoPaterno, apellidoMaterno,
