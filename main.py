@@ -100,44 +100,6 @@ def buscar_por_curp(curp: str):
         conexion.close()
 
 # Crear un nuevo alumno
-class InsertarAlumno(BaseModel):
-    id: str
-    curp: str = Field(max_length=18, min_length=18)
-    matricula: Optional[str] = Field(default=None, max_length=15)
-    nombre: str = Field(max_length=80)
-    apellidoPaterno: str = Field(max_length=50)
-    apellidoMaterno: str = Field(max_length=50)
-    fechaNacimiento: date
-    sexo: str = Field(max_length=1, min_length=1, pattern="^[HM]$")
-    telefono: str = Field(max_length=15, min_length=10, pattern=r"^\d+$")
-    correo: str = Field(max_length=80, pattern=r"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$")
-    idSede: int = Field(gt=0, lt=5)
-    estadoCivil: str = Field(max_length=20)
-    idNacionalidad: int = Field(gt=0, lt=5)
-    hablaLengua: int = Field(ge=0, le=1)
-    idLengua: Optional[int] = Field(gt=0, lt=68)
-    tieneBeca: int = Field(ge=0, le=1)
-    queBeca: Optional[str] = Field(default=None, max_length=50)
-    hijoDeTrabjador: str = Field(max_length=5, pattern="^(true|false)$")
-    idCapturo: str
-    fechaTramite: date
-    fechaCaptura: date
-    idRol: int
-    tieneAlergias: int = Field(ge=0, le=1)
-    alergias: Optional[str] = Field(default=None, max_length=20)
-    tipoSangre: str = Field(max_length=3, pattern="^(A|B|AB|O)[+-]$")
-    tieneDiscapacidad: int = Field(ge=0, le=1)
-    discapacidad: Optional[str] = Field(default=None, max_length=200)
-    nombreTutor: Optional[str] = Field(default=None, max_length=80)
-    apellidoPaternoTutor: Optional[str] = Field(default=None, max_length=50)
-    apellidoMaternoTutor: Optional[str] = Field(default=None, max_length=50)
-    telefonoTutor: Optional[str] = Field(default=None, max_length=15)
-    codigoPostal: str = Field(max_length=10, min_length=5, pattern=r"^\d{5,10}$")
-    calle: str = Field(max_length=100)
-    entreCalles: Optional[str] = Field(default=None, max_length=100)
-    numeroExterior: str = Field(max_length=10, min_length=1, pattern=r"^\d+$")
-    numeroInterior: Optional[str] = Field(default=None, max_length=10)
-    idLocalidad: str = Field(default="B0572553-592A-4A46-B730-000022504801")
 
 class DocumentoInfo(BaseModel):
     nombre_archivo: str
@@ -147,14 +109,13 @@ class DocumentoInfo(BaseModel):
 
 @api.post("/alumnos/insertar")
 async def insertar_alumno(
-    # Datos del alumno como form data
-    id: str = Form(...),
+    id: Optional[str] = Form(None),
     curp: str = Form(...),
     matricula: Optional[str] = Form(None),
     nombre: str = Form(...),
     apellidoPaterno: str = Form(...),
     apellidoMaterno: str = Form(...),
-    fechaNacimiento: str = Form(...),  # Como string para form data
+    fechaNacimiento: str = Form(...),
     sexo: str = Form(...),
     telefono: str = Form(...),
     correo: str = Form(...),
@@ -167,9 +128,9 @@ async def insertar_alumno(
     queBeca: Optional[str] = Form(None),
     hijoDeTrabjador: str = Form(...),
     idCapturo: str = Form(...),
-    fechaTramite: str = Form(...),
-    fechaCaptura: str = Form(...),
-    idRol: int = Form(...),
+    fechaTramite: Optional[str] = Form(...),
+    fechaCaptura: Optional[str] = Form(...),
+    idRol: Optional[int] = Form(0),
     tieneAlergias: int = Form(...),
     alergias: Optional[str] = Form(None),
     tipoSangre: str = Form(...),
@@ -184,8 +145,7 @@ async def insertar_alumno(
     entreCalles: Optional[str] = Form(None),
     numeroExterior: str = Form(...),
     numeroInterior: Optional[str] = Form(None),
-    idLocalidad: str = Form(default="B0572553-592A-4A46-B730-000022504801"),
-    # Archivos PDF
+    idLocalidad: str = Form(...),
     documentos: List[UploadFile] = File(...)
 ):
     conexion = connect()
@@ -321,6 +281,7 @@ async def insertar_alumno(
     finally:
         cursor.close()
         conexion.close()
+
 # Actualizar un alumno
 # Modelo para actualizar un alumno
 class ActualizarAlumno(BaseModel):
@@ -336,7 +297,7 @@ class ActualizarAlumno(BaseModel):
     correo: str = Field(max_length=80, pattern=r"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$")
     idSede: int = Field(gt=0, lt=5)
     estadoCivil: str = Field(max_length=20)
-    idNacionalidad: int = Field(gt=0, lt=5)  # Corregido: removido max_length
+    idNacionalidad: int = Field(gt=0, lt=5)
     hablaLengua: int = Field(ge=0, le=1)
     idLengua: Optional[int] = Field(gt=0, lt=68)
     tieneBeca: int = Field(ge=0, le=1)
@@ -354,7 +315,7 @@ class ActualizarAlumno(BaseModel):
     nombreTutor: Optional[str] = Field(default=None, max_length=80)
     apellidoPaternoTutor: Optional[str] = Field(default=None, max_length=50)
     apellidoMaternoTutor: Optional[str] = Field(default=None, max_length=50)
-    telefonoTutor: Optional[str] = Field(default=None, max_length=15)  # Removido min_length y pattern porque es Optional
+    telefonoTutor: Optional[str] = Field(default=None, max_length=15)
     codigoPostal: str = Field(max_length=10, min_length=5, pattern=r"^\d{5,10}$")
     calle: str = Field(max_length=100)
     entreCalles: Optional[str] = Field(default=None, max_length=100)
@@ -364,7 +325,6 @@ class ActualizarAlumno(BaseModel):
 
 @api.put("/alumnos/actualizar")
 async def actualizar_alumno(
-    # Datos del alumno como form data (mismos parámetros que insertar)
     id: str = Form(...),
     curp: str = Form(...),
     matricula: Optional[str] = Form(None),
@@ -384,8 +344,8 @@ async def actualizar_alumno(
     queBeca: Optional[str] = Form(None),
     hijoDeTrabjador: str = Form(...),
     idCapturo: str = Form(...),
-    fechaTramite: str = Form(...),
-    fechaCaptura: str = Form(...),
+    fechaTramite: Optional[date] = Form(...),
+    fechaCaptura: Optional[date] = Form(...),
     idRol: int = Form(...),
     tieneAlergias: int = Form(...),
     alergias: Optional[str] = Form(None),
