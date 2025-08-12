@@ -44,6 +44,8 @@ _"Decidí usar FastAPI ya que vi que es lo que usan para COBACH API, viendo que 
 ### Instalación
 
 1. **Instalar Prerrequisitos**
+- Instalar la version de Python 3.8 o superior
+
 Nota: Es probable que al ejecutar la aplicación en la terminal aparezca algo como: "La ejecución de scripts no está habilitada", por lo que se deberá activar mediante el siguiente comando en una terminal de PowerShell ejecutada como administrador:
 ```bash
 Set-ExecutionPolicy Unrestricted
