@@ -39,24 +39,30 @@ _"Decidí usar FastAPI ya que vi que es lo que usan para COBACH API, viendo que 
 
 -   Python 3.8 o superior
 -   SQL Server con ODBC Driver 17
--   Variables de entorno configuradas
+-   Variables de entorno configuradas (.env)
 
 ### Instalación
 
-1. **Clonar el repositorio**
+1. **Instalar Prerrequisitos**
+Nota: Es probable que al ejecutar la aplicación en la terminal aparezca algo como: "La ejecución de scripts no está habilitada", por lo que se deberá activar mediante el siguiente comando en una terminal de PowerShell ejecutada como administrador:
+```bash
+Set-ExecutionPolicy Unrestricted
+```
+
+2. **Clonar el repositorio**
 
 ```bash
 git clone https://github.com/usuario/sea-api.git
 cd sea-api
 ```
 
-2. **Instalar dependencias**
+3. **Instalar dependencias**
 
 ```bash
 pip install -r requirements.txt
 ```
 
-3. **Configurar variables de entorno**
+4. **Configurar variables de entorno**
    Crear archivo `.env`:
 
 ```env
@@ -66,7 +72,7 @@ USER=usuario_db
 PASSWORD=contraseña_db
 ```
 
-4. **Ejecutar la API**
+5. **Ejecutar la API**
 
 ```bash
 uvicorn main:api --reload --host 127.0.0.1 --port 8000
