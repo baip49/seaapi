@@ -1,0 +1,7 @@
+fastapi
+uvicorn[standard]
+pyodbc
+python-dotenv
+pydantic
+fastapi-swagger-dark
+python-multipart
